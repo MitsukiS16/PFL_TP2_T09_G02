@@ -14,7 +14,7 @@ and a brief description of tasks performed) of each member of the group to the a
 
 3. Compile the code, eg `['game.pl'].`
 
-4. Run code, `main_menu.`
+4. Run code, `play.`
 
 ## Game Description
 
