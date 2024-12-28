@@ -78,3 +78,16 @@ issues), as well as possible improvements (future developments roadmap
 List of books, papers, web pages and other resources used during the development of the
 assignment. If you used tools such as ChatGPT, list the queries used
 ```
+
+
+
+## TODO
+
+* Update board to original ayu board
+* Update move parts -> the player shoudl seelct a piece (indicate the coordinates) nad than give th enew movemente (indicate the coordinates)
+* because we have almost infinite options, just print 5 options of movement
+* implement the random player
+* implement the gready player
+* implement when its a win -  If a player can't make a move on his turn, he wins. This usually occurs when said player has joined all his pieces in a single group. (its possible to have draws but ww will asume that players want to win and its not cooperate)
+* implenete possible moves of a piece (because if a player sleect a impossible move , we should say its impossible and he have to try again), and this implementaion can be use for the pc select a move
+* 
