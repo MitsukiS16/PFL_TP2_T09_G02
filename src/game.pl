@@ -88,19 +88,24 @@ display_game(game(Board, Players, CurrentPlayer)) :-
     display_board(Board),
     nl.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%% DISPLAY BOARD %%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Display the board with numbered rows and columns
+% Display the game board with row and column numbers
 display_board(Board) :-
+    length(Board, MaxRows),
+    length(Board, MaxColumns),
     % Display column numbers at the top
     write('     '),
-    length(Board, MaxColumns),
     forall(between(1, MaxColumns, Col), 
            (print_column_number(Col))),
     nl,
-    write('   -----------------------------------------------'), nl, 
+    % Dynamically create the separator line
+    create_separator(MaxColumns),
     % Display each row with row numbers
     display_rows(Board, 1),
-    write('   -----------------------------------------------'), nl.
+    create_separator(MaxColumns).
 
 % Print each column number with proper spacing
 print_column_number(Col) :-
@@ -109,6 +114,13 @@ print_column_number(Col) :-
     ;  % If the column is a double digit
         write(Col), write('  ')
     ).
+
+% Create a separator line based on the number of columns
+create_separator(MaxColumns) :-
+    SeparatorLength is MaxColumns * 4 + 3,  % Adjust length based on column spacing
+    write('   '),
+    forall(between(1, SeparatorLength, _), write('-')),
+    nl.
 
 display_rows([], _).
 display_rows([Row|Rest], RowNum) :-
@@ -125,6 +137,7 @@ display_rows([Row|Rest], RowNum) :-
 
 display_cell(empty) :- write('  . ').  
 display_cell(Cell) :- write(' '), write(Cell), write('  '). 
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%% MOVE HANDLING %%%%%%%%%%%%%%%%%%%%%%%
