@@ -1,49 +1,23 @@
 % Main predicate to run the menu
 play :-
     write('--------------------------------------'), nl,
-    write('|     Welcome to Ayu Game            |'), nl,
+    write('|       Welcome to Ayu Game          |'), nl,
     write('--------------------------------------'), nl,
-    % Initialize the game state by choosing player types and board size
-    initial_state(PlayerType, BoardSize),
-    % Display the selected options
-    write('You selected: '), nl,
-    write('Player Type: '), write(PlayerType), nl,
-    write('Board Size: '), write(BoardSize), write('x'), write(BoardSize), nl,
-    % Set the global board size for visualization
-    retractall(board_size(_)),  % Remove any existing board_size value
-    assert(board_size(BoardSize)),
-    % Display the game board
-    display_game,
-    % Start the game loop
-    move().
+    choose_board_size(BoardSize),
+    choose_players(Players),
+    create_initial_board(BoardSize, Board),
+    initial_state(Board, Players, GameState),
+    display_game(GameState),  % Display the game board once
+    game_cycle(GameState).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%% INITIAL STATE %%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Prompt for initial state (player type and board size)
-initial_state(PlayerType, BoardSize) :-
-    choose_player_type(PlayerType),
-    choose_board_size(BoardSize).
-
-% Player type selection menu
-choose_player_type(PlayerType) :-
-    write('--------------------------------------'), nl,
-    write('| Choose Player Type                 |'), nl,
-    write('| 1. Human vs Human                  |'), nl,
-    write('| 2. Human vs PC                     |'), nl,
-    write('| 3. PC vs Human                     |'), nl,
-    write('| 4. PC vs PC                        |'), nl,
-    write('| Choose an option (1-4):            |'), nl,
-    write('--------------------------------------'), nl,
-    read(Choice),
-    handle_player_choice(Choice, PlayerType).
-
-% Handle player's choice for type of player
-handle_player_choice(1, 'Human vs Human').
-handle_player_choice(2, 'Human vs PC').
-handle_player_choice(3, 'PC vs Human').
-handle_player_choice(4, 'PC vs PC').
-handle_player_choice(_, PlayerType) :-
-    write('Invalid choice. Please try again.'), nl,
-    choose_player_type(PlayerType).
+% Initialize the game state
+initial_state(Board, Players, game(Board, Players, CurrentPlayer)) :-
+    nth0(0, Players, CurrentPlayer),
+    write('Game initialized!'), nl.
 
 % Board size selection menu
 choose_board_size(BoardSize) :-
@@ -54,10 +28,9 @@ choose_board_size(BoardSize) :-
     write('| 3. 9x9                             |'), nl,
     write('| Choose an option (1-3):            |'), nl,
     write('--------------------------------------'), nl,
-    read(Choice),
+    safe_read(Choice),
     handle_board_size_choice(Choice, BoardSize).
 
-% Handle user's choice for board size
 handle_board_size_choice(1, 11).
 handle_board_size_choice(2, 13).
 handle_board_size_choice(3, 9).
@@ -65,63 +38,140 @@ handle_board_size_choice(_, BoardSize) :-
     write('Invalid choice. Please try again.'), nl,
     choose_board_size(BoardSize).
 
+% Player type selection
+choose_players(Players) :-
+    write('Choosing Player 1:'), nl,
+    choose_player_type(Player1),
+    write('Choosing Player 2:'), nl,
+    choose_player_type(Player2),
+    Players = [Player1, Player2].
+
+choose_player_type(Player) :-
+    write('--------------------------------------'), nl,
+    write('| Choose Player Type                 |'), nl,
+    write('| 1. Human                           |'), nl,
+    write('| 2. PC - level 1                    |'), nl,
+    write('| 3. PC - level 2                    |'), nl,
+    write('| Choose an option (1-3):            |'), nl,
+    write('--------------------------------------'), nl,
+    safe_read(Choice),
+    handle_player_choice(Choice, Player).
+
+handle_player_choice(1, human).
+handle_player_choice(2, pc_level1).
+handle_player_choice(3, pc_level2).
+handle_player_choice(_, Player) :-
+    write('Invalid choice. Please try again.'), nl,
+    choose_player_type(Player).
+
+% Safe input handling
+safe_read(Input) :-
+    catch(read(Input), _, (write('Invalid input. Please try again.'), nl, fail)).
+
+% Create the initial empty board
+create_initial_board(Size, Board) :-
+    length(Row, Size),
+    maplist(=(empty), Row),
+    length(Board, Size),
+    maplist(=(Row), Board).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%% BOARD %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%% DISPLAY GAME %%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Visualization of the game board
-display_game :-
-    write('Displaying the game board...'), nl,
-    board_size(Size), % Retrieve the current board size
-    write('Displaying a game board of size '), write(Size), write('x'), write(Size), nl,
-    display_board(Size).
-
-% Generate and display the board based on size
-display_board(Size) :-
-    display_separator(Size),         % Display the top border
-    display_rows(Size),              % Call to display all rows
-    display_separator(Size).         % Display the bottom border
-
-% Display the separator line based on board size
-display_separator(Size) :-
-    TotalDashes is Size * 5 + 2,     % Calculate the total length 
-    display_dashes(TotalDashes), 
+% Display the game board with row and column numbers
+display_game(game(Board, Players, CurrentPlayer)) :-
+    nl, write('Current Game State:'), nl,
+    write('Players: '), write(Players), nl,
+    write('Current Player: '), write(CurrentPlayer), nl,
+    write('Current Board'), nl,
+    display_board(Board),
     nl.
 
-% Helper to display the dashes
-display_dashes(0).                   % Base case: no more dashes to display
 
-display_dashes(N) :-
-    write('-'),
-    NextN is N - 1,
-    display_dashes(NextN).
+% Display the board with numbered rows and columns
+display_board(Board) :-
+    % Display column numbers at the top
+    write('     '),
+    length(Board, MaxColumns),
+    forall(between(1, MaxColumns, Col), 
+           (print_column_number(Col))),
+    nl,
+    write('   -----------------------------------------------'), nl, 
+    % Display each row with row numbers
+    display_rows(Board, 1),
+    write('   -----------------------------------------------'), nl.
 
-% Display all rows
-display_rows(0).                     % Base case: no more rows to display
+% Print each column number with proper spacing
+print_column_number(Col) :-
+    (Col < 10 ->  % If the column is a single digit
+        write(' '), write(Col), write('  ')
+    ;  % If the column is a double digit
+        write(Col), write('  ')
+    ).
 
-display_rows(Size) :-
-    board_size(BoardSize),           % Get the fixed board size
-    write('|'),                      % Start of the row
-    display_row(BoardSize),          % Display columns for the fixed board size
-    write('|'),
-    nl,                              % Newline after the row
-    NextSize is Size - 1,            % Decrease the remaining number of rows
-    display_rows(NextSize).          % Display next row
+display_rows([], _).
+display_rows([Row|Rest], RowNum) :-
+    (RowNum < 10 ->  % If the row number is single digit
+        write(' '), write(RowNum), write(' |')
+    ;  % If the row number is double digit
+        write(RowNum), write(' |')
+    ),
+    maplist(display_cell, Row),
+    write(' |'), 
+    nl,
+    NewRowNum is RowNum + 1,
+    display_rows(Rest, NewRowNum).
 
-% Display the cells in a single row
-display_row(0).                      % Base case: no more columns to display
-
-display_row(Size) :-
-    write('  .  '),                  % Placeholder for board cells
-    NextSize is Size - 1,            % Decrease the remaining number of columns
-    display_row(NextSize).           % Recursively display the next column
+display_cell(empty) :- write('  . ').  
+display_cell(Cell) :- write(' '), write(Cell), write('  '). 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%% MOVE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%% MOVE HANDLING %%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+choose_move(game(Board, [Player1, Player2], Player1), Player1, Move) :-
+    display_board(Board),  % Display board after choosing move
+    write('Player 1 (Human), it\'s your turn! Please enter your move (row-column):'), nl,
+    safe_read(Move),
+    valid_move(Board, Move),  % Validate the move
+    !.
 
-% Placeholder for game loop
-move :-
-    write('TODO: Implement the game move logic here.'), nl.
+choose_move(game(Board, [Player1, Player2], Player2), Player2, Move) :-
+    display_board(Board),  % Display board after choosing move
+    write('Player 2 (Human), it\'s your turn! Please enter your move (row-column):'), nl,
+    safe_read(Move),
+    valid_move(Board, Move),  % Validate the move
+    !.
+
+choose_move(game(_, _, pc_level1), pc_level1, Move) :-
+    write('PC Level 1 is choosing a move...'), nl,
+    Move = dummy_move.  % Replace this with actual logic for PC level 1
+
+choose_move(game(_, _, pc_level2), pc_level2, Move) :-
+    write('PC Level 2 is choosing a move...'), nl,
+    Move = dummy_move.  % Replace this with actual logic for PC level 2
+
+choose_move(_, _, _) :-
+    write('Invalid player type or move.'), nl, fail.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%% GAME CYCLE %%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+game_cycle(GameState) :-
+    game_over(GameState, Winner), !,
+    congratulate(Winner).
+
+game_cycle(GameState) :-
+    choose_move(GameState, Player, Move),
+    apply_move(GameState, Move, NewGameState),
+    display_game(NewGameState),
+    game_cycle(NewGameState).
+
+% Placeholder for determining if the game is over
+game_over(_, _) :- fail.
+
+% Congratulate the winner
+congratulate(Winner) :-
+    write('Congratulations! The winner is: '), write(Winner), nl.
