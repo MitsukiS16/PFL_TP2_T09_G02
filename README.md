@@ -90,4 +90,4 @@ assignment. If you used tools such as ChatGPT, list the queries used
 * implement the gready player
 * implement when its a win -  If a player can't make a move on his turn, he wins. This usually occurs when said player has joined all his pieces in a single group. (its possible to have draws but ww will asume that players want to win and its not cooperate)
 * implenete possible moves of a piece (because if a player sleect a impossible move , we should say its impossible and he have to try again), and this implementaion can be use for the pc select a move
-* 
+* implement the update of the board when select move 

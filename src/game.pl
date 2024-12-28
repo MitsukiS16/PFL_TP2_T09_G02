@@ -7,7 +7,7 @@ play :-
     choose_players(Players),
     create_initial_board(BoardSize, Board),
     initial_state(Board, Players, GameState),
-    display_game(GameState),  % Display the game board once
+    display_game(GameState),
     game_cycle(GameState).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -96,14 +96,11 @@ display_game(game(Board, Players, CurrentPlayer)) :-
 display_board(Board) :-
     length(Board, MaxRows),
     length(Board, MaxColumns),
-    % Display column numbers at the top
     write('     '),
     forall(between(1, MaxColumns, Col), 
            (print_column_number(Col))),
     nl,
-    % Dynamically create the separator line
     create_separator(MaxColumns),
-    % Display each row with row numbers
     display_rows(Board, 1),
     create_separator(MaxColumns).
 
@@ -117,7 +114,7 @@ print_column_number(Col) :-
 
 % Create a separator line based on the number of columns
 create_separator(MaxColumns) :-
-    SeparatorLength is MaxColumns * 4 + 3,  % Adjust length based on column spacing
+    SeparatorLength is MaxColumns * 4 + 3, 
     write('   '),
     forall(between(1, SeparatorLength, _), write('-')),
     nl.
@@ -144,26 +141,26 @@ display_cell(Cell) :- write(' '), write(Cell), write('  ').
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 choose_move(game(Board, [Player1, Player2], Player1), Player1, Move) :-
-    display_board(Board),  % Display board after choosing move
+    display_board(Board),  
     write('Player 1 (Human), it\'s your turn! Please enter your move (row-column):'), nl,
     safe_read(Move),
-    valid_move(Board, Move),  % Validate the move
+    valid_move(Board, Move),
     !.
 
 choose_move(game(Board, [Player1, Player2], Player2), Player2, Move) :-
-    display_board(Board),  % Display board after choosing move
+    display_board(Board), 
     write('Player 2 (Human), it\'s your turn! Please enter your move (row-column):'), nl,
     safe_read(Move),
-    valid_move(Board, Move),  % Validate the move
+    valid_move(Board, Move),  
     !.
 
 choose_move(game(_, _, pc_level1), pc_level1, Move) :-
     write('PC Level 1 is choosing a move...'), nl,
-    Move = dummy_move.  % Replace this with actual logic for PC level 1
+    Move = movetodo.  
 
 choose_move(game(_, _, pc_level2), pc_level2, Move) :-
     write('PC Level 2 is choosing a move...'), nl,
-    Move = dummy_move.  % Replace this with actual logic for PC level 2
+    Move = movetodo. 
 
 choose_move(_, _, _) :-
     write('Invalid player type or move.'), nl, fail.
@@ -182,7 +179,6 @@ game_cycle(GameState) :-
     display_game(NewGameState),
     game_cycle(NewGameState).
 
-% Placeholder for determining if the game is over
 game_over(_, _) :- fail.
 
 % Congratulate the winner
