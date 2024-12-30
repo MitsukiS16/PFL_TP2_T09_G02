@@ -1,3 +1,7 @@
+:- use_module(library(lists)).
+:- use_module(library(aggregate)).
+:- use_module(library(between)).
+
 % Main predicate to run the menu
 play :-
     write('--------------------------------------'), nl,
@@ -68,12 +72,52 @@ handle_player_choice(_, Player) :-
 safe_read(Input) :-
     catch(read(Input), _, (write('Invalid input. Please try again.'), nl, fail)).
 
-% Create the initial empty board
-create_initial_board(Size, Board) :-
-    length(Row, Size),
-    maplist(=(empty), Row),
-    length(Board, Size),
-    maplist(=(Row), Board).
+% Create the initial Ayu board setup
+create_initial_board(11, Board) :-
+    Board = [
+        [red, empty, red, empty, red, empty, red, empty, red, empty, red],
+        [empty, white, empty, white, empty, white, empty, white, empty, white, empty],
+        [red, empty, red, empty, red, empty, red, empty, red, empty, red],
+        [empty, white, empty, white, empty, white, empty, white, empty, white, empty],
+        [red, empty, red, empty, red, empty, red, empty, red, empty, red],
+        [empty, white, empty, white, empty, white, empty, white, empty, white, empty],
+        [red, empty, red, empty, red, empty, red, empty, red, empty, red],
+        [empty, white, empty, white, empty, white, empty, white, empty, white, empty],
+        [red, empty, red, empty, red, empty, red, empty, red, empty, red],
+        [empty, white, empty, white, empty, white, empty, white, empty, white, empty],
+        [red, empty, red, empty, red, empty, red, empty, red, empty, red]
+    ].
+
+create_initial_board(13, Board) :-
+    Board = [
+        [red, empty, red, empty, red, empty, red, empty, red, empty, red, empty, red],
+        [empty, white, empty, white, empty, white, empty, white, empty, white, empty, white, empty],
+        [red, empty, red, empty, red, empty, red, empty, red, empty, red, empty, red],
+        [empty, white, empty, white, empty, white, empty, white, empty, white, empty, white, empty],
+        [red, empty, red, empty, red, empty, red, empty, red, empty, red, empty, red],
+        [empty, white, empty, white, empty, white, empty, white, empty, white, empty, white, empty],
+        [red, empty, red, empty, red, empty, red, empty, red, empty, red, empty, red],
+        [empty, white, empty, white, empty, white, empty, white, empty, white, empty, white, empty],
+        [red, empty, red, empty, red, empty, red, empty, red, empty, red, empty, red],
+        [empty, white, empty, white, empty, white, empty, white, empty, white, empty, white, empty],
+        [red, empty, red, empty, red, empty, red, empty, red, empty, red, empty, red],
+        [empty, white, empty, white, empty, white, empty, white, empty, white, empty, white, empty],
+        [red, empty, red, empty, red, empty, red, empty, red, empty, red, empty, red]
+    ].
+
+create_initial_board(9, Board) :-
+    Board = [
+        [red, empty, red, empty, red, empty, red, empty, red],
+        [empty, white, empty, white, empty, white, empty, white, empty],
+        [red, empty, red, empty, red, empty, red, empty, red],
+        [empty, white, empty, white, empty, white, empty, white, empty],
+        [red, empty, red, empty, red, empty, red, empty, red],
+        [empty, white, empty, white, empty, white, empty, white, empty],
+        [red, empty, red, empty, red, empty, red, empty, red],
+        [empty, white, empty, white, empty, white, empty, white, empty],
+        [red, empty, red, empty, red, empty, red, empty, red]
+    ].
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%% DISPLAY GAME %%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -85,7 +129,6 @@ display_game(game(Board, Players, CurrentPlayer)) :-
     write('Players: '), write(Players), nl,
     write('Current Player: '), write(CurrentPlayer), nl,
     write('Current Board'), nl,
-    display_board(Board),
     nl.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -132,8 +175,10 @@ display_rows([Row|Rest], RowNum) :-
     NewRowNum is RowNum + 1,
     display_rows(Rest, NewRowNum).
 
-display_cell(empty) :- write('  . ').  
-display_cell(Cell) :- write(' '), write(Cell), write('  '). 
+display_cell(empty) :- write('  . ').
+display_cell(red) :- write('  R ').
+display_cell(white) :- write('  W ').
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -142,14 +187,14 @@ display_cell(Cell) :- write(' '), write(Cell), write('  ').
 
 choose_move(game(Board, [Player1, Player2], Player1), Player1, Move) :-
     display_board(Board),  
-    write('Player 1 (Human), it\'s your turn! Please enter your move (row-column):'), nl,
+    write('Player 1 (Human), it\'s your turn! Please enter the piece you want to move (row-column):'), nl,
     safe_read(Move),
     valid_move(Board, Move),
     !.
 
 choose_move(game(Board, [Player1, Player2], Player2), Player2, Move) :-
     display_board(Board), 
-    write('Player 2 (Human), it\'s your turn! Please enter your move (row-column):'), nl,
+    write('Player 2 (Human), it\'s your turn! Please enter the piece you want to move (row-column):'), nl,
     safe_read(Move),
     valid_move(Board, Move),  
     !.
