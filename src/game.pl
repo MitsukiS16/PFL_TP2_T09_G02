@@ -1,30 +1,19 @@
 :- use_module(library(lists)).
-:- use_module(library(aggregate)).
 :- use_module(library(between)).
+:- use_module(library(aggregate)).
 
 % Main predicate to run the menu
-play :-
+play :- 
     write('--------------------------------------'), nl,
     write('|       Welcome to Ayu Game          |'), nl,
     write('--------------------------------------'), nl,
     choose_board_size(BoardSize),
-    choose_players(Players),
     create_initial_board(BoardSize, Board),
-    initial_state(Board, Players, GameState),
-    display_game(GameState),
-    game_cycle(GameState).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%% INITIAL STATE %%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% Initialize the game state
-initial_state(Board, Players, game(Board, Players, CurrentPlayer)) :-
-    nth0(0, Players, CurrentPlayer),
-    write('Game initialized!'), nl.
+    write('Game initialized!'), nl,
+    game_cycle(game(Board, [human, human], red)).
 
 % Board size selection menu
-choose_board_size(BoardSize) :-
+choose_board_size(BoardSize) :- 
     write('--------------------------------------'), nl,
     write('| Choose Board Size                  |'), nl,
     write('| 1. 11x11 (Original Size)           |'), nl,
@@ -42,38 +31,12 @@ handle_board_size_choice(_, BoardSize) :-
     write('Invalid choice. Please try again.'), nl,
     choose_board_size(BoardSize).
 
-% Player type selection
-choose_players(Players) :-
-    write('Choosing Player 1:'), nl,
-    choose_player_type(Player1),
-    write('Choosing Player 2:'), nl,
-    choose_player_type(Player2),
-    Players = [Player1, Player2].
-
-choose_player_type(Player) :-
-    write('--------------------------------------'), nl,
-    write('| Choose Player Type                 |'), nl,
-    write('| 1. Human                           |'), nl,
-    write('| 2. PC - level 1                    |'), nl,
-    write('| 3. PC - level 2                    |'), nl,
-    write('| Choose an option (1-3):            |'), nl,
-    write('--------------------------------------'), nl,
-    safe_read(Choice),
-    handle_player_choice(Choice, Player).
-
-handle_player_choice(1, human).
-handle_player_choice(2, pc_level1).
-handle_player_choice(3, pc_level2).
-handle_player_choice(_, Player) :-
-    write('Invalid choice. Please try again.'), nl,
-    choose_player_type(Player).
-
 % Safe input handling
-safe_read(Input) :-
+safe_read(Input) :- 
     catch(read(Input), _, (write('Invalid input. Please try again.'), nl, fail)).
 
-% Create the initial Ayu board setup
-create_initial_board(11, Board) :-
+% Create initial boards
+create_initial_board(11, Board) :- 
     Board = [
         [red, empty, red, empty, red, empty, red, empty, red, empty, red],
         [empty, white, empty, white, empty, white, empty, white, empty, white, empty],
@@ -88,7 +51,7 @@ create_initial_board(11, Board) :-
         [red, empty, red, empty, red, empty, red, empty, red, empty, red]
     ].
 
-create_initial_board(13, Board) :-
+create_initial_board(13, Board) :- 
     Board = [
         [red, empty, red, empty, red, empty, red, empty, red, empty, red, empty, red],
         [empty, white, empty, white, empty, white, empty, white, empty, white, empty, white, empty],
@@ -105,7 +68,7 @@ create_initial_board(13, Board) :-
         [red, empty, red, empty, red, empty, red, empty, red, empty, red, empty, red]
     ].
 
-create_initial_board(9, Board) :-
+create_initial_board(9, Board) :- 
     Board = [
         [red, empty, red, empty, red, empty, red, empty, red],
         [empty, white, empty, white, empty, white, empty, white, empty],
@@ -118,114 +81,105 @@ create_initial_board(9, Board) :-
         [red, empty, red, empty, red, empty, red, empty, red]
     ].
 
+% Game loop
+game_cycle(game(Board, Players, CurrentPlayer)) :- 
+    display_game(game(Board, Players, CurrentPlayer)),
+    play_turn(game(Board, Players, CurrentPlayer), NewGameState),
+    game_cycle(NewGameState).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%% DISPLAY GAME %%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Play turn for a given player
+play_turn(game(Board, [human, human], CurrentPlayer), game(NewBoard, [human, human], NextPlayer)) :-
+    write('Current player: '), write(CurrentPlayer), nl,
+    write('Select the piece you want to move (Row Col): '), nl,
+    safe_read(StartPos),
+    valid_piece(Board, CurrentPlayer, StartPos),
+    write('Select the destination (Row Col): '), nl,
+    safe_read(EndPos),
+    valid_move(Board, EndPos),
+    write('Valid move!'), nl,
+    apply_move(Board, StartPos, EndPos, CurrentPlayer, NewBoard),
+    next_player(CurrentPlayer, NextPlayer).
 
-% Display the game board with row and column numbers
-display_game(game(Board, Players, CurrentPlayer)) :-
-    nl, write('Current Game State:'), nl,
-    write('Players: '), write(Players), nl,
-    write('Current Player: '), write(CurrentPlayer), nl,
-    write('Current Board'), nl,
-    nl.
+% Safe input handling (ensures input is in correct format)
+safe_read((Row, Col)) :- 
+    catch(read(Row-Col), _, (write('Invalid input. Please try again.'), nl, fail)).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%% DISPLAY BOARD %%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Valid piece selection check (must belong to the current player)
+valid_piece(Board, Player, (Row, Col)) :- 
+    valid_position(Board, Row, Col),
+    nth0(Row, Board, RowList),
+    nth0(Col, RowList, Piece),
+    Piece == Player.
 
-% Display the game board with row and column numbers
-display_board(Board) :-
+valid_position(Board, Row, Col) :-
+    length(Board, Rows),
+    length(Board, Cols),
+    Row >= 0, Row < Rows, Col >= 0, Col < Cols.
+
+% Valid destination check (must be empty)
+valid_move(Board, (Row, Col)) :- 
+    valid_position(Board, Row, Col),
+    nth0(Row, Board, RowList),
+    nth0(Col, RowList, empty),
+    !. % Only succeed if the destination is empty
+
+% Apply the move: move a piece from StartPos to EndPos
+apply_move(Board, (StartRow, StartCol), (EndRow, EndCol), Player, NewBoard) :-
+    % Replace the Start position with empty
+    nth0(StartRow, Board, StartRowList, TempRows1),
+    replace_in_list(StartCol, StartRowList, empty, NewStartRowList),
+    nth0(StartRow, TempBoard, NewStartRowList, TempRows1),
+
+    % Replace the End position with the player's piece
+    nth0(EndRow, TempBoard, EndRowList, TempRows2),
+    replace_in_list(EndCol, EndRowList, Player, NewEndRowList),
+    nth0(EndRow, NewBoard, NewEndRowList, TempRows2).
+
+% Helper predicate to replace an element at a specific index in a list
+replace_in_list(Index, List, NewElem, NewList) :-
+    nth0(Index, List, _, TempList),
+    nth0(Index, NewList, NewElem, TempList).
+
+% Get next player
+next_player(red, white).
+next_player(white, red).
+
+% Display the game board
+display_game(game(Board, _, _)) :- 
+    nl, write('--------------------------------------'), nl,
+    write('Current Board: '), nl,
+    display_board(Board).
+
+% Display the board
+display_board(Board) :- 
     length(Board, MaxRows),
-    length(Board, MaxColumns),
     write('     '),
-    forall(between(1, MaxColumns, Col), 
-           (print_column_number(Col))),
+    forall(between(1, MaxRows, Col), print_column_number(Col)),
     nl,
-    create_separator(MaxColumns),
+    create_separator(MaxRows),
     display_rows(Board, 1),
-    create_separator(MaxColumns).
+    create_separator(MaxRows).
 
-% Print each column number with proper spacing
-print_column_number(Col) :-
-    (Col < 10 ->  % If the column is a single digit
-        write(' '), write(Col), write('  ')
-    ;  % If the column is a double digit
-        write(Col), write('  ')
-    ).
+% Print column number
+print_column_number(Col) :- 
+    (Col < 10 -> write(' '), write(Col), write('  ') ; write(Col), write('  ')).
 
-% Create a separator line based on the number of columns
-create_separator(MaxColumns) :-
+% Create separator for rows
+create_separator(MaxColumns) :- 
     SeparatorLength is MaxColumns * 4 + 3, 
-    write('   '),
-    forall(between(1, SeparatorLength, _), write('-')),
-    nl.
+    write('   '), 
+    forall(between(1, SeparatorLength, _), write('-')), nl.
 
+% Display rows of the board
 display_rows([], _).
-display_rows([Row|Rest], RowNum) :-
-    (RowNum < 10 ->  % If the row number is single digit
-        write(' '), write(RowNum), write(' |')
-    ;  % If the row number is double digit
-        write(RowNum), write(' |')
-    ),
+display_rows([Row|Rest], RowNum) :- 
+    (RowNum < 10 -> write(' '), write(RowNum), write(' |') ; write(RowNum), write(' |')),
     maplist(display_cell, Row),
-    write(' |'), 
-    nl,
+    write(' |'), nl,
     NewRowNum is RowNum + 1,
     display_rows(Rest, NewRowNum).
 
+% Display each cell (empty, red, or white)
 display_cell(empty) :- write('  . ').
 display_cell(red) :- write('  R ').
 display_cell(white) :- write('  W ').
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%% MOVE HANDLING %%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-choose_move(game(Board, [Player1, Player2], Player1), Player1, Move) :-
-    display_board(Board),  
-    write('Player 1 (Human), it\'s your turn! Please enter the piece you want to move (row-column):'), nl,
-    safe_read(Move),
-    valid_move(Board, Move),
-    !.
-
-choose_move(game(Board, [Player1, Player2], Player2), Player2, Move) :-
-    display_board(Board), 
-    write('Player 2 (Human), it\'s your turn! Please enter the piece you want to move (row-column):'), nl,
-    safe_read(Move),
-    valid_move(Board, Move),  
-    !.
-
-choose_move(game(_, _, pc_level1), pc_level1, Move) :-
-    write('PC Level 1 is choosing a move...'), nl,
-    Move = movetodo.  
-
-choose_move(game(_, _, pc_level2), pc_level2, Move) :-
-    write('PC Level 2 is choosing a move...'), nl,
-    Move = movetodo. 
-
-choose_move(_, _, _) :-
-    write('Invalid player type or move.'), nl, fail.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%% GAME CYCLE %%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-game_cycle(GameState) :-
-    game_over(GameState, Winner), !,
-    congratulate(Winner).
-
-game_cycle(GameState) :-
-    choose_move(GameState, Player, Move),
-    apply_move(GameState, Move, NewGameState),
-    display_game(NewGameState),
-    game_cycle(NewGameState).
-
-game_over(_, _) :- fail.
-
-% Congratulate the winner
-congratulate(Winner) :-
-    write('Congratulations! The winner is: '), write(Winner), nl.
