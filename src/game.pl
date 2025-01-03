@@ -89,16 +89,26 @@ game_cycle(game(Board, Players, CurrentPlayer)) :-
 
 % Play turn for a given player
 play_turn(game(Board, [human, human], CurrentPlayer), game(NewBoard, [human, human], NextPlayer)) :-
-    write('Current player: '), write(CurrentPlayer), nl,
+    get_move(Board, CurrentPlayer, StartPos, EndPos),
+    move(game(Board, [human, human], CurrentPlayer), (StartPos, EndPos), game(NewBoard, [human, human], NextPlayer)),
+    next_player(CurrentPlayer, NextPlayer).
+
+% Get the piece to move and the destination
+get_move(Board, CurrentPlayer, StartPos, EndPos) :-
     repeat,
-    write('Select the piece you want to move (Row Col): '), nl,
+    write('Select the piece you want to move (Row,Col): '), nl,
     safe_read(StartPos),
     (valid_piece(Board, CurrentPlayer, StartPos) -> true ; fail),
-    write('Select the destination (Row Col): '), nl,
+    write('Select the destination (Row,Col): '), nl,
     safe_read(EndPos),
-    (valid_move(Board, StartPos, EndPos, CurrentPlayer) -> true ; fail),
-    apply_move(Board, StartPos, EndPos, CurrentPlayer, NewBoard),
-    next_player(CurrentPlayer, NextPlayer).
+    (valid_position(Board, EndPos) -> true ; fail).
+
+% Validate the move and apply it
+move(game(Board, Players, CurrentPlayer), (StartPos, EndPos), game(NewBoard, Players, NextPlayer)) :-
+    StartPos = (StartRow, StartCol),
+    EndPos = (EndRow, EndCol),
+    valid_move(Board, (StartRow, StartCol), (EndRow, EndCol), CurrentPlayer),
+    apply_move(Board, StartPos, EndPos, CurrentPlayer, NewBoard).
 
 % Safe input handling (ensures input is in correct format)
 safe_read((Row, Col)) :- 
@@ -132,10 +142,19 @@ valid_move(Board, (StartRow, StartCol), (Row, Col), Player) :-
     StartRow0 is StartRow - 1,
     StartCol0 is StartCol - 1,
     (valid_position(Board, Row0, Col0) -> true ; (write('Invalid move. Please try again.'), nl, fail)), % Check if the destination is valid on the board
-    valid_distance((Row0, Col0), (StartRow0, StartCol0)), % Check if the destination is within 1 cell of the start position 
+    (valid_distance((Row0, Col0), (StartRow0, StartCol0)) -> true ; 
+    (write('Invalid move. Destination must be within 1 cell of the start position.'), nl, fail)), % Check if the destination is within 1 cell of the start position 
     nth0(Row0, Board, RowList),           % Get the row of the destination
     nth0(Col0, RowList, empty),           % Ensure the destination is empty
-    adjacent_same_color(Board, (Row0, Col0), Player, (StartRow0, StartCol0)). % Check adjacency to same-color pieces
+    (adjacent_same_color(Board, (Row0, Col0), Player, (StartRow0, StartCol0)) -> true ; 
+    (write('Invalid move. Destination must be adjacent to a piece of the same color.'), nl, fail)). % Check adjacency to same-color pieces
+
+% Generate a list of all possible valid moves for the current player
+valid_moves(game(Board, Players, CurrentPlayer), ListOfMoves) :-
+    findall((StartPos, EndPos), 
+            (valid_piece(Board, CurrentPlayer, StartPos), 
+                valid_move(Board, StartPos, EndPos, CurrentPlayer)), 
+            ListOfMoves).
 
 % Check if the destination cell is adjacent to at least one cell with the same color
 adjacent_same_color(Board, (Row, Col), Color, (StartRow, StartCol)) :-
@@ -157,8 +176,6 @@ neighboring_position(Board, (Row, Col), (NRow, NCol), (StartRow, StartCol)) :-
 
 % Apply the move: move a piece from StartPos to EndPos
 apply_move(Board, (StartRow, StartCol), (EndRow, EndCol), Player, NewBoard) :-
-    % Ensure the move is valid
-    valid_move(Board, (StartRow, StartCol), (EndRow, EndCol), Player),
     StartRow0 is StartRow - 1,
     StartCol0 is StartCol - 1,
     EndRow0 is EndRow - 1,
@@ -182,41 +199,48 @@ next_player(red, white).
 next_player(white, red).
 
 % Display the game board
-display_game(game(Board, _, _)) :- 
+display_game(game(Board, _, CurrentPlayer)) :- 
     nl, write('--------------------------------------'), nl,
     write('Current Board: '), nl,
-    display_board(Board).
+    display_board(Board),
+    nl, write('Current Player: '), write(CurrentPlayer), nl.
 
-% Display the board
-display_board(Board) :- 
+% Display the board with improved aesthetics and consistent formatting
+% Display the board with improved aesthetics and consistent formatting
+display_board(Board) :-
     length(Board, MaxRows),
-    write('     '),
+    write('    '),  % Top padding for column numbers
     forall(between(1, MaxRows, Col), print_column_number(Col)),
     nl,
-    create_separator(MaxRows),
-    display_rows(Board, 1),
-    create_separator(MaxRows).
+    create_top_border(MaxRows),  % Initial top border
+    display_rows_with_borders(Board, 1, MaxRows),
+    create_top_border(MaxRows).  % Final bottom border
 
-% Print column number
-print_column_number(Col) :- 
-    (Col < 10 -> write(' '), write(Col), write('  ') ; write(Col), write('  ')).
+% Print column numbers with consistent spacing
+print_column_number(Col) :-
+    (Col < 10 -> write('  '), write(Col), write(' ') ; write(' '), write(Col), write(' ')).
 
-% Create separator for rows
-create_separator(MaxColumns) :- 
-    SeparatorLength is MaxColumns * 4 + 3, 
-    write('   '), 
-    forall(between(1, SeparatorLength, _), write('-')), nl.
+% Create top/bottom border
+create_top_border(MaxColumns) :-
+    write('    +'),
+    forall(between(1, MaxColumns, _), write('---+')),
+    nl.
 
-% Display rows of the board
-display_rows([], _).
-display_rows([Row|Rest], RowNum) :- 
-    (RowNum < 10 -> write(' '), write(RowNum), write(' |') ; write(RowNum), write(' |')),
-    maplist(display_cell, Row),
-    write(' |'), nl,
+% Display rows with borders
+display_rows_with_borders([], _, _).  % Base case: No rows left to display
+display_rows_with_borders([Row|Rest], RowNum, MaxColumns) :-
+    % Print row number with consistent spacing
+    (RowNum < 10 -> write('  '), write(RowNum), write(' |') ; write(' '), write(RowNum), write(' |')),
+    % Display row cells
+    maplist(display_cell_with_border, Row),
+    write('\n'),  % End of row
+    % Add row separator if there are more rows to follow
+    (Rest \= [] -> create_top_border(MaxColumns) ; true),
+    % Recurse to display the remaining rows
     NewRowNum is RowNum + 1,
-    display_rows(Rest, NewRowNum).
+    display_rows_with_borders(Rest, NewRowNum, MaxColumns).
 
-% Display each cell (empty, red, or white)
-display_cell(empty) :- write('  . ').
-display_cell(red) :- write('  R ').
-display_cell(white) :- write('  W ').
+% Display a cell with borders
+display_cell_with_border(empty) :- write('   |').
+display_cell_with_border(red) :- write(' R |').
+display_cell_with_border(white) :- write(' W |').
