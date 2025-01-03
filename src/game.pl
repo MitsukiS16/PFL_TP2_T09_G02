@@ -90,50 +90,87 @@ game_cycle(game(Board, Players, CurrentPlayer)) :-
 % Play turn for a given player
 play_turn(game(Board, [human, human], CurrentPlayer), game(NewBoard, [human, human], NextPlayer)) :-
     write('Current player: '), write(CurrentPlayer), nl,
+    repeat,
     write('Select the piece you want to move (Row Col): '), nl,
     safe_read(StartPos),
-    valid_piece(Board, CurrentPlayer, StartPos),
+    (valid_piece(Board, CurrentPlayer, StartPos) -> true ; fail),
     write('Select the destination (Row Col): '), nl,
     safe_read(EndPos),
-    valid_move(Board, EndPos),
-    write('Valid move!'), nl,
+    (valid_move(Board, StartPos, EndPos, CurrentPlayer) -> true ; fail),
     apply_move(Board, StartPos, EndPos, CurrentPlayer, NewBoard),
     next_player(CurrentPlayer, NextPlayer).
 
 % Safe input handling (ensures input is in correct format)
 safe_read((Row, Col)) :- 
-    catch(read(Row-Col), _, (write('Invalid input. Please try again.'), nl, fail)).
+    catch(read(Row-Col), _, (write('Invalid input. Please try again.'), nl, fail)),
+    Row > 0, Col > 0.
 
 % Valid piece selection check (must belong to the current player)
 valid_piece(Board, Player, (Row, Col)) :- 
-    valid_position(Board, Row, Col),
-    nth0(Row, Board, RowList),
-    nth0(Col, RowList, Piece),
-    Piece == Player.
+    Row0 is Row - 1,
+    Col0 is Col - 1,
+    valid_position(Board, Row0, Col0),
+    nth0(Row0, Board, RowList),
+    nth0(Col0, RowList, Piece),
+    (Piece == Player -> true ; 
+    (write('Invalid piece selection. Please select a piece that belongs to you.'), nl, fail)).
 
 valid_position(Board, Row, Col) :-
     length(Board, Rows),
-    length(Board, Cols),
+    nth0(0, Board, FirstRow),
+    length(FirstRow, Cols),
     Row >= 0, Row < Rows, Col >= 0, Col < Cols.
 
-% Valid destination check (must be empty)
-valid_move(Board, (Row, Col)) :- 
-    valid_position(Board, Row, Col),
-    nth0(Row, Board, RowList),
-    nth0(Col, RowList, empty),
-    !. % Only succeed if the destination is empty
+valid_distance((Row, Col), (StartRow, StartCol)) :-
+    abs(Row - StartRow) =< 1,
+    abs(Col - StartCol) =< 1.
+
+% Valid destination check with adjacency validation
+valid_move(Board, (StartRow, StartCol), (Row, Col), Player) :- 
+    Row0 is Row - 1,
+    Col0 is Col - 1,
+    StartRow0 is StartRow - 1,
+    StartCol0 is StartCol - 1,
+    (valid_position(Board, Row0, Col0) -> true ; (write('Invalid move. Please try again.'), nl, fail)), % Check if the destination is valid on the board
+    valid_distance((Row0, Col0), (StartRow0, StartCol0)), % Check if the destination is within 1 cell of the start position 
+    nth0(Row0, Board, RowList),           % Get the row of the destination
+    nth0(Col0, RowList, empty),           % Ensure the destination is empty
+    adjacent_same_color(Board, (Row0, Col0), Player, (StartRow0, StartCol0)). % Check adjacency to same-color pieces
+
+% Check if the destination cell is adjacent to at least one cell with the same color
+adjacent_same_color(Board, (Row, Col), Color, (StartRow, StartCol)) :-
+    % Collect valid neighbors
+    findall((NRow, NCol), neighboring_position(Board, (Row, Col), (NRow, NCol), (StartRow, StartCol)), Neighbors),
+    % Ensure at least one neighbor has the same color as the player
+    member((NRow, NCol), Neighbors),
+    nth0(NRow, Board, NeighborRow),
+    nth0(NCol, NeighborRow, NeighborColor),
+    NeighborColor == Color.
+
+neighboring_position(Board, (Row, Col), (NRow, NCol), (StartRow, StartCol)) :-
+    % Define the relative positions of neighbors
+    member((DR, DC), [(-1, 0), (1, 0), (0, -1), (0, 1)]), % Up, Down, Left, Right
+    NRow is Row + DR,
+    NCol is Col + DC,
+    valid_position(Board, NRow, NCol), % Ensure the position is valid
+    (NRow \= StartRow ; NCol \= StartCol). % Exclude the start position
 
 % Apply the move: move a piece from StartPos to EndPos
 apply_move(Board, (StartRow, StartCol), (EndRow, EndCol), Player, NewBoard) :-
-    % Replace the Start position with empty
-    nth0(StartRow, Board, StartRowList, TempRows1),
-    replace_in_list(StartCol, StartRowList, empty, NewStartRowList),
-    nth0(StartRow, TempBoard, NewStartRowList, TempRows1),
-
-    % Replace the End position with the player's piece
-    nth0(EndRow, TempBoard, EndRowList, TempRows2),
-    replace_in_list(EndCol, EndRowList, Player, NewEndRowList),
-    nth0(EndRow, NewBoard, NewEndRowList, TempRows2).
+    % Ensure the move is valid
+    valid_move(Board, (StartRow, StartCol), (EndRow, EndCol), Player),
+    StartRow0 is StartRow - 1,
+    StartCol0 is StartCol - 1,
+    EndRow0 is EndRow - 1,
+    EndCol0 is EndCol - 1,
+    % Replace the start position with empty
+    nth0(StartRow0, Board, StartRowList, TempRows1),
+    replace_in_list(StartCol0, StartRowList, empty, NewStartRowList),
+    nth0(StartRow0, TempBoard, NewStartRowList, TempRows1),
+    % Replace the end position with the player's piece
+    nth0(EndRow0, TempBoard, EndRowList, TempRows2),
+    replace_in_list(EndCol0, EndRowList, Player, NewEndRowList),
+    nth0(EndRow0, NewBoard, NewEndRowList, TempRows2).
 
 % Helper predicate to replace an element at a specific index in a list
 replace_in_list(Index, List, NewElem, NewList) :-
