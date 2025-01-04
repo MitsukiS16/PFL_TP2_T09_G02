@@ -111,7 +111,7 @@ create_initial_board(9, Board) :-
 % Main game cycle with the new win condition
 game_cycle(game(Board, Players, CurrentPlayer)) :-
     display_game(game(Board, Players, CurrentPlayer)),
-    (all_pieces_adjacent(Board, CurrentPlayer) -> 
+    (game_over(Board, CurrentPlayer) -> 
         (write('Player '), write(CurrentPlayer), write(' wins!'), nl) ;
         (play_turn(game(Board, Players, CurrentPlayer), NewGameState),
         game_cycle(NewGameState))).
@@ -223,7 +223,7 @@ apply_move(Board, (StartRow, StartCol), (EndRow, EndCol), Player, NewBoard) :-
     nth0(EndRow0, NewBoard, NewEndRowList, TempRows2).
 
 % Check if all pieces of a player are adjacent to each other
-all_pieces_adjacent(Board, Player) :-
+game_over(Board, Player) :-
     findall((Row, Col), piece_position(Board, Player, (Row, Col)), Positions),
     (Positions = [] -> fail ; Positions = [FirstPos|_], check_all_adjacent(Positions, [FirstPos], [FirstPos], Positions)).
 
