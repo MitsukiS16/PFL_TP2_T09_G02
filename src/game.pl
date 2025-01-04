@@ -112,8 +112,8 @@ create_initial_board(9, Board) :-
 % Main game cycle with the new win condition
 game_cycle(game(Board, Players, CurrentPlayer)) :-
     display_game(game(Board, Players, CurrentPlayer)),
-    (game_over(Board, CurrentPlayer) -> 
-        (write('Player '), write(CurrentPlayer), write(' wins!'), nl) ;
+    (game_over(Board, Winner) -> 
+        (write('Player '), write(Winner), write(' wins!'), nl) ;
         (play_turn(game(Board, Players, CurrentPlayer), NewGameState),
         game_cycle(NewGameState))).
 
@@ -255,10 +255,15 @@ apply_move(Board, (StartRow, StartCol), (EndRow, EndCol), Player, NewBoard) :-
     replace_in_list(EndCol0, EndRowList, Player, NewEndRowList),
     nth0(EndRow0, NewBoard, NewEndRowList, TempRows2).
 
-% Check if all pieces of a player are adjacent to each other
-game_over(Board, Player) :-
-    findall((Row, Col), piece_position(Board, Player, (Row, Col)), Positions),
-    (Positions = [] -> fail ; Positions = [FirstPos|_], check_all_adjacent(Positions, [FirstPos], [FirstPos], Positions)).
+% Check if all pieces of a player are adjacent to each other and return the winner
+game_over(Board, Winner) :-
+    findall((Row, Col), piece_position(Board, red, (Row, Col)), RedPositions),
+    findall((Row, Col), piece_position(Board, white, (Row, Col)), WhitePositions),
+    (RedPositions = [] -> Winner = white ;
+    WhitePositions = [] -> Winner = red ;
+    (RedPositions = [FirstRedPos|_], check_all_adjacent(RedPositions, [FirstRedPos], [FirstRedPos], RedPositions) -> Winner = red ;
+    WhitePositions = [FirstWhitePos|_], check_all_adjacent(WhitePositions, [FirstWhitePos], [FirstWhitePos], WhitePositions) -> Winner = white ;
+    fail)).
 
 % Find the position of a player's piece on the board
 piece_position(Board, Player, (Row, Col)) :-
