@@ -3,7 +3,6 @@
 :- use_module(library(aggregate)).
 :- use_module(library(random)).
 
-
 % Main predicate to run the menu
 play :- 
     write('--------------------------------------'), nl,
@@ -145,6 +144,7 @@ choose_move(game(Board, Players, CurrentPlayer), 1, (StartPos, EndPos)) :-
     Row0 is StartRow - 1,
     Col0 is StartCol - 1,
     valid_moves(Board, CurrentPlayer, (Row0, Col0), Moves0),
+    write('Valid moves: '), write(Moves0), nl,
     % Adjust valid moves to 1-based coordinates
     findall((EndRow1, EndCol1), (member((EndRow, EndCol), Moves0), EndRow1 is EndRow + 1, EndCol1 is EndCol + 1, valid_position(Board, EndRow, EndCol)), Moves),
     % Randomly select one move from the valid moves
@@ -203,7 +203,11 @@ valid_moves(Board, Player, (StartRow, StartCol), Moves) :-
              (DR \= 0 ; DC \= 0), % Exclude staying in place
              EndRow is StartRow + DR,
              EndCol is StartCol + DC,
-             valid_move(Board, (StartRow, StartCol), (EndRow, EndCol), Player)),
+             valid_position(Board, EndRow, EndCol),        % Destination is within the board
+             nth0(EndRow, Board, RowList),              % Get the row of the destination
+             nth0(EndCol, RowList, empty),              % Ensure the destination cell is empty
+             valid_distance((EndRow, EndCol), (StartRow, StartCol)), % Within move distance
+             adjacent_same_color(Board, (EndRow, EndCol), Player, (StartRow, StartCol))),
             Moves).
 
 % Check for valid moves
