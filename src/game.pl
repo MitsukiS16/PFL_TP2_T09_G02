@@ -8,6 +8,7 @@ play :-
     write('|       Welcome to Ayu Game          |'), nl,
     write('--------------------------------------'), nl,
     choose_board_size(BoardSize),
+    choose_players(Players),
     create_initial_board(BoardSize, Board),
     write('Game initialized!'), nl,
     game_cycle(game(Board, [human, human], red)).
@@ -30,6 +31,32 @@ handle_board_size_choice(3, 9).
 handle_board_size_choice(_, BoardSize) :-
     write('Invalid choice. Please try again.'), nl,
     choose_board_size(BoardSize).
+
+% Player type selection
+choose_players(Players) :-
+    write('Choosing Player 1:'), nl,
+    choose_player_type(Player1),
+    write('Choosing Player 2:'), nl,
+    choose_player_type(Player2),
+    Players = [Player1, Player2].
+
+choose_player_type(Player) :-
+    write('--------------------------------------'), nl,
+    write('| Choose Player Type                 |'), nl,
+    write('| 1. Human                           |'), nl,
+    write('| 2. PC - level 1                    |'), nl,
+    write('| 3. PC - level 2                    |'), nl,
+    write('| Choose an option (1-3):            |'), nl,
+    write('--------------------------------------'), nl,
+    safe_read(Choice),
+    handle_player_choice(Choice, Player).
+
+handle_player_choice(1, human).
+handle_player_choice(2, pc_level1).
+handle_player_choice(3, pc_level2).
+handle_player_choice(_, Player) :-
+    write('Invalid choice. Please try again.'), nl,
+    choose_player_type(Player).
 
 % Safe input handling
 safe_read(Input) :- 
@@ -71,21 +98,23 @@ create_initial_board(13, Board) :-
 create_initial_board(9, Board) :- 
     Board = [
         [red, empty, red, empty, red, empty, red, empty, red],
-        [empty, white, empty, white, empty, white, empty, white, empty],
-        [red, empty, red, empty, red, empty, red, empty, red],
-        [empty, white, empty, white, empty, white, empty, white, empty],
-        [red, empty, red, empty, red, empty, red, empty, red],
-        [empty, white, empty, white, empty, white, empty, white, empty],
-        [red, empty, red, empty, red, empty, red, empty, red],
-        [empty, white, empty, white, empty, white, empty, white, empty],
-        [red, empty, red, empty, red, empty, red, empty, red]
+        [empty, empty, empty, empty, empty, empty, empty, empty, empty],
+        [empty, empty, empty, empty, empty, empty, empty, empty, empty],
+        [empty, empty, empty, empty, empty, empty, empty, empty, empty],
+        [empty, empty, empty, empty, empty, empty, empty, empty, empty],
+        [empty, empty, empty, empty, empty, empty, empty, empty, empty],
+        [empty, empty, empty, empty, empty, empty, empty, empty, empty],
+        [empty, empty, empty, empty, empty, empty, empty, empty, empty],
+        [red, empty, red, empty, red, empty, white, empty, white]
     ].
 
-% Game loop
-game_cycle(game(Board, Players, CurrentPlayer)) :- 
+% Main game cycle with the new win condition
+game_cycle(game(Board, Players, CurrentPlayer)) :-
     display_game(game(Board, Players, CurrentPlayer)),
-    play_turn(game(Board, Players, CurrentPlayer), NewGameState),
-    game_cycle(NewGameState).
+    (all_pieces_adjacent(Board, CurrentPlayer) -> 
+        (write('Player '), write(CurrentPlayer), write(' wins!'), nl) ;
+        (play_turn(game(Board, Players, CurrentPlayer), NewGameState),
+        game_cycle(NewGameState))).
 
 % Play turn for a given player
 play_turn(game(Board, [human, human], CurrentPlayer), game(NewBoard, [human, human], NextPlayer)) :-
@@ -98,10 +127,13 @@ get_move(Board, CurrentPlayer, StartPos, EndPos) :-
     repeat,
     write('Select the piece you want to move (Row,Col): '), nl,
     safe_read(StartPos),
-    (valid_piece(Board, CurrentPlayer, StartPos) -> true ; fail),
+    (valid_piece(Board, CurrentPlayer, StartPos) -> true ; (write('Invalid piece selection. Please try again.'), nl, fail)),
     write('Select the destination (Row,Col): '), nl,
     safe_read(EndPos),
-    (valid_position(Board, EndPos) -> true ; fail).
+    EndPos = (EndRow, EndCol),
+    EndRow0 is EndRow - 1,
+    EndCol0 is EndCol - 1,
+    (valid_position(Board, EndRow0, EndCol0) -> true ; (write('Invalid destination. Please try again.'), nl, fail)).
 
 % Validate the move and apply it
 move(game(Board, Players, CurrentPlayer), (StartPos, EndPos), game(NewBoard, Players, NextPlayer)) :-
@@ -135,26 +167,27 @@ valid_distance((Row, Col), (StartRow, StartCol)) :-
     abs(Row - StartRow) =< 1,
     abs(Col - StartCol) =< 1.
 
-% Valid destination check with adjacency validation
-valid_move(Board, (StartRow, StartCol), (Row, Col), Player) :- 
-    Row0 is Row - 1,
-    Col0 is Col - 1,
+% Get all valid moves for a player's piece from (StartRow, StartCol)
+valid_moves(Board, Player, (StartRow, StartCol), Moves) :-
+    findall((StartRow, StartCol, EndRow, EndCol),
+            (between(-1, 1, DR), between(-1, 1, DC), % Check adjacent cells
+             (DR \= 0 ; DC \= 0), % Exclude staying in place
+             EndRow is StartRow + DR,
+             EndCol is StartCol + DC,
+             valid_move(Board, (StartRow, StartCol), (EndRow, EndCol), Player)),
+            Moves).
+
+% Check for valid moves
+valid_move(Board, (StartRow, StartCol), (EndRow, EndCol), Player) :-
+    Row0 is EndRow - 1,
+    Col0 is EndCol - 1,
     StartRow0 is StartRow - 1,
     StartCol0 is StartCol - 1,
-    (valid_position(Board, Row0, Col0) -> true ; (write('Invalid move. Please try again.'), nl, fail)), % Check if the destination is valid on the board
-    (valid_distance((Row0, Col0), (StartRow0, StartCol0)) -> true ; 
-    (write('Invalid move. Destination must be within 1 cell of the start position.'), nl, fail)), % Check if the destination is within 1 cell of the start position 
-    nth0(Row0, Board, RowList),           % Get the row of the destination
-    nth0(Col0, RowList, empty),           % Ensure the destination is empty
-    (adjacent_same_color(Board, (Row0, Col0), Player, (StartRow0, StartCol0)) -> true ; 
-    (write('Invalid move. Destination must be adjacent to a piece of the same color.'), nl, fail)). % Check adjacency to same-color pieces
-
-% Generate a list of all possible valid moves for the current player
-valid_moves(game(Board, Players, CurrentPlayer), ListOfMoves) :-
-    findall((StartPos, EndPos), 
-            (valid_piece(Board, CurrentPlayer, StartPos), 
-                valid_move(Board, StartPos, EndPos, CurrentPlayer)), 
-            ListOfMoves).
+    valid_position(Board, Row0, Col0),        % Destination is within the board
+    nth0(Row0, Board, RowList),              % Get the row of the destination
+    nth0(Col0, RowList, empty),              % Ensure the destination cell is empty
+    valid_distance((Row0, Col0), (StartRow0, StartCol0)), % Within move distance
+    adjacent_same_color(Board, (Row0, Col0), Player, (StartRow0, StartCol0)). % Adjacent to same color
 
 % Check if the destination cell is adjacent to at least one cell with the same color
 adjacent_same_color(Board, (Row, Col), Color, (StartRow, StartCol)) :-
@@ -189,6 +222,31 @@ apply_move(Board, (StartRow, StartCol), (EndRow, EndCol), Player, NewBoard) :-
     replace_in_list(EndCol0, EndRowList, Player, NewEndRowList),
     nth0(EndRow0, NewBoard, NewEndRowList, TempRows2).
 
+% Check if all pieces of a player are adjacent to each other
+all_pieces_adjacent(Board, Player) :-
+    findall((Row, Col), piece_position(Board, Player, (Row, Col)), Positions),
+    (Positions = [] -> fail ; Positions = [FirstPos|_], check_all_adjacent(Positions, [FirstPos], [FirstPos], Positions)).
+
+% Find the position of a player's piece on the board
+piece_position(Board, Player, (Row, Col)) :-
+    nth0(Row, Board, RowList),
+    nth0(Col, RowList, Player).
+
+% Check if all positions are adjacent to each other
+check_all_adjacent([], _, _, _).
+check_all_adjacent(_, [], _, []).
+check_all_adjacent(AllPositions, [Pos|Rest], Visited, Unvisited) :-
+    findall(Neighbor, (adjacent(Pos, Neighbor), member(Neighbor, AllPositions), \+ member(Neighbor, Visited)), Neighbors),
+    append(Neighbors, Rest, NewRest),
+    select(Pos, Unvisited, NewUnvisited),
+    check_all_adjacent(AllPositions, NewRest, [Pos|Visited], NewUnvisited).
+
+% Check if two positions are adjacent
+adjacent((Row, Col), (NRow, NCol)) :-
+    member((DR, DC), [(-1, 0), (1, 0), (0, -1), (0, 1)]),
+    NRow is Row + DR,
+    NCol is Col + DC.
+
 % Helper predicate to replace an element at a specific index in a list
 replace_in_list(Index, List, NewElem, NewList) :-
     nth0(Index, List, _, TempList),
@@ -205,7 +263,6 @@ display_game(game(Board, _, CurrentPlayer)) :-
     display_board(Board),
     nl, write('Current Player: '), write(CurrentPlayer), nl.
 
-% Display the board with improved aesthetics and consistent formatting
 % Display the board with improved aesthetics and consistent formatting
 display_board(Board) :-
     length(Board, MaxRows),
