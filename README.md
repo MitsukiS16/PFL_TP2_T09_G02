@@ -1,4 +1,4 @@
-# GAME NAME
+# AYU
 
 ```
 Identification of the topic (game) and group (group designation, student number and full name of each
