@@ -1,10 +1,9 @@
-:- use_module(library(lists)).
-:- use_module(library(apply)).
-:- use_module(library(between)).
-:- use_module(library(aggregate)).
-:- use_module(library(random)).
-:- use_module(library(sets)).
-
+% :- use_module(library(lists)).
+% :- use_module(library(apply)).
+% :- use_module(library(between)).
+% :- use_module(library(aggregate)).
+% :- use_module(library(random)).
+% :- use_module(library(sets)).
 
 % Main predicate to run the menu
 play :- 
@@ -15,7 +14,7 @@ play :-
     choose_players(Players),
     create_initial_board(BoardSize, Board),
     write('Game initialized!'), nl,
-    game_cycle(game(Board, Players, red)).
+    game_cycle(game(Board, Players, red), []).
 
 % Board size selection menu
 choose_board_size(BoardSize) :- 
@@ -66,6 +65,11 @@ handle_player_choice(_, Player) :-
 safe_read(Input) :- 
     catch(read(Input), _, (write('Invalid input. Please try again.'), nl, fail)).
 
+% Safe input handling (ensures input is in correct format)
+safe_read((Row, Col)) :- 
+    catch(read(Row-Col), _, (write('Invalid input. Please try again.'), nl, fail)),
+    Row > 0, Col > 0.
+
 % Create initial boards
 create_initial_board(11, Board) :- 
     Board = [
@@ -112,34 +116,43 @@ create_initial_board(9, Board) :-
         [red, empty, red, empty, red, empty, red, empty, red]
     ].
 
-% Main game cycle with the new win condition
-game_cycle(game(Board, Players, CurrentPlayer)) :-
+% Main game cycle with cycle detection and draw condition
+game_cycle(game(Board, Players, CurrentPlayer), PreviousBoards) :-
     display_game(game(Board, Players, CurrentPlayer)),
     (game_over(Board, Winner) -> 
         (write('Player '), write(Winner), write(' wins!'), nl) ;
-        (play_turn(game(Board, Players, CurrentPlayer), NewGameState),
-        game_cycle(NewGameState))).
+        (member((Board, CurrentPlayer), PreviousBoards) ->
+            write('Game ended in a draw due to repetition.'), nl ;
+            (play_turn(game(Board, Players, CurrentPlayer), NewGameState),
+            game_cycle(NewGameState, [(Board, CurrentPlayer)|PreviousBoards]))
+        )
+    ).
 
 % Play turn for a given player
 play_turn(game(Board, Players, CurrentPlayer), game(NewBoard, Players, NextPlayer)) :-
     (CurrentPlayer = red -> CurrentPlayerIndex = 1 ; CurrentPlayerIndex = 2),
     nth1(CurrentPlayerIndex, Players, PlayerType),
     write('Player type: '), write(PlayerType), nl,
-    (PlayerType == human ->
-        get_move(Board, CurrentPlayer, StartPos, EndPos), 
-        move(game(Board, Players, CurrentPlayer), (StartPos, EndPos), game(NewBoard, Players, NextPlayer))
-    ; PlayerType == pc_level1 ->
-        choose_move(game(Board, Players, CurrentPlayer), 1, (StartPos, EndPos)),
-        write('PC Level 1 chooses move from '), write(StartPos), write(' to '), write(EndPos), nl,
-        move(game(Board, Players, CurrentPlayer), (StartPos, EndPos), game(NewBoard, Players, NextPlayer))
-    ; PlayerType == pc_level2 ->
-        choose_move(game(Board, Players, CurrentPlayer), 2, (StartPos, EndPos)),
-        write('PC Level 2 chooses move from '), write(StartPos), write(' to '), write(EndPos), nl,
-        move(game(Board, Players, CurrentPlayer), (StartPos, EndPos), game(NewBoard, Players, NextPlayer))
+    % Check if the current player has any valid moves
+    (has_valid_moves(Board, CurrentPlayer) ->
+        (PlayerType == human ->
+            get_move(Board, CurrentPlayer, StartPos, EndPos), 
+            move(game(Board, Players, CurrentPlayer), (StartPos, EndPos), game(NewBoard, Players, NextPlayer))
+        ; PlayerType == pc_level1 ->
+            choose_move(game(Board, Players, CurrentPlayer), 1, (StartPos, EndPos)),
+            write('PC Level 1 chooses move from '), write(StartPos), write(' to '), write(EndPos), nl,
+            move(game(Board, Players, CurrentPlayer), (StartPos, EndPos), game(NewBoard, Players, NextPlayer))
+        ; PlayerType == pc_level2 ->
+            choose_move(game(Board, Players, CurrentPlayer), 2, (StartPos, EndPos)),
+            write('PC Level 2 chooses move from '), write(StartPos), write(' to '), write(EndPos), nl,
+            move(game(Board, Players, CurrentPlayer), (StartPos, EndPos), game(NewBoard, Players, NextPlayer))
+        )
+    ;   % If no valid moves, the current player wins
+        game_over(Board, CurrentPlayer)
     ).
 
 
-choose_move(game(Board, Players, CurrentPlayer), 1, (StartPos, EndPos)) :-
+choose_move(game(Board, _, CurrentPlayer), 1, (StartPos, EndPos)) :-
     % Find all pieces of the current player
     findall((Row1, Col1), (piece_position(Board, CurrentPlayer, (Row, Col)), Row1 is Row + 1, Col1 is Col + 1), PlayerPieces),
     % Randomly select one piece
@@ -155,7 +168,7 @@ choose_move(game(Board, Players, CurrentPlayer), 1, (StartPos, EndPos)) :-
     % Randomly select one move from the valid moves
     random_member(EndPos, Moves).
 
-choose_move(game(Board, Players, CurrentPlayer), 2, (BestStartPos, BestEndPos)) :-
+choose_move(game(Board, _, CurrentPlayer), 2, (BestStartPos, BestEndPos)) :-
     % Find all pieces of the current player
     findall((Row1, Col1), (piece_position(Board, CurrentPlayer, (Row, Col)), Row1 is Row + 1, Col1 is Col + 1), PlayerPieces),
     % Generate all possible moves for each piece
@@ -177,7 +190,6 @@ choose_move(game(Board, Players, CurrentPlayer), 2, (BestStartPos, BestEndPos)) 
     max_member((_, BestStartPos, BestEndPos), MovesWithScores).
 
 % sum_list(+List, -Sum)
-% Sums all elements in a list.
 sum_list(List, Sum) :-
     sum_list(List, 0, Sum).
 
@@ -265,11 +277,6 @@ move(game(Board, Players, CurrentPlayer), (StartPos, EndPos), game(NewBoard, Pla
     apply_move(Board, (StartRow, StartCol), (EndRow, EndCol), CurrentPlayer, NewBoard),
     next_player(CurrentPlayer, NextPlayer).
 
-% Safe input handling (ensures input is in correct format)
-safe_read((Row, Col)) :- 
-    catch(read(Row-Col), _, (write('Invalid input. Please try again.'), nl, fail)),
-    Row > 0, Col > 0.
-
 % Valid piece selection check (must belong to the current player)
 valid_piece(Board, Player, (Row, Col)) :- 
     Row0 is Row - 1,
@@ -280,12 +287,19 @@ valid_piece(Board, Player, (Row, Col)) :-
     (Piece == Player -> true ; 
     (write('Invalid piece selection. Please select a piece that belongs to you.'), nl, fail)).
 
+% Check if the position is within the bounds of the board
 valid_position(Board, Row, Col) :-
     length(Board, Rows),
     nth0(0, Board, FirstRow),
     length(FirstRow, Cols),
     Row >= 0, Row < Rows, Col >= 0, Col < Cols.
 
+% Check if the position is within the bounds of the board (duplicate removed)
+valid_position(Board, Row, Col) :-
+    nth0(Row, Board, RowList),
+    nth0(Col, RowList, _).  % Checks if the column exists in the row.
+
+% Check if the move distance is valid
 valid_distance((Row, Col), (StartRow, StartCol)) :-
     abs(Row - StartRow) =< 1,
     abs(Col - StartCol) =< 1.
@@ -302,7 +316,9 @@ valid_moves(Board, Player, (StartRow, StartCol), Moves) :-
              nth0(EndCol, RowList, empty),              % Ensure the destination cell is empty
              valid_distance((EndRow, EndCol), (StartRow, StartCol)), % Within move distance
              adjacent_same_color(Board, (EndRow, EndCol), Player, (StartRow, StartCol))),
-            Moves).
+            RawMoves),
+    % Convert list to set to remove duplicates
+    list_to_set(RawMoves, Moves).
 
 % Check for valid moves
 valid_move(Board, (StartRow, StartCol), (EndRow, EndCol), Player) :-
@@ -334,6 +350,15 @@ neighboring_position(Board, (Row, Col), (NRow, NCol), (StartRow, StartCol)) :-
     valid_position(Board, NRow, NCol), % Ensure the position is valid
     (NRow \= StartRow ; NCol \= StartCol). % Exclude the start position
 
+% Check for an adjacent position of the same color
+neighboring_position(Board, (Row, Col), (NRow, NCol), Player) :-
+    member((DR, DC), [(-1, 0), (1, 0), (0, -1), (0, 1)]),
+    NRow is Row + DR,
+    NCol is Col + DC,
+    valid_position(Board, NRow, NCol),
+    nth0(NRow, Board, RowList),
+    nth0(NCol, RowList, Player).
+
 % Apply the move: move a piece from StartPos to EndPos
 apply_move(Board, (StartRow, StartCol), (EndRow, EndCol), Player, NewBoard) :-
     StartRow0 is StartRow - 1,
@@ -349,7 +374,6 @@ apply_move(Board, (StartRow, StartCol), (EndRow, EndCol), Player, NewBoard) :-
     replace_in_list(EndCol0, EndRowList, Player, NewEndRowList),
     nth0(EndRow0, NewBoard, NewEndRowList, TempRows2).
 
-% Check if all pieces of a player are adjacent to each other and return the winner
 % Check if the game is over, and return the winner
 game_over(Board, Winner) :-
     % Check if all red pieces are connected
@@ -357,7 +381,17 @@ game_over(Board, Winner) :-
     % Check if all white pieces are connected
     all_connected(Board, white) -> Winner = white ;
     % Otherwise, the game is not over
+    \+ has_valid_moves(Board, red) -> Winner = white ;
+    % Check if white has no valid moves
+    \+ has_valid_moves(Board, white) -> Winner = red ;
+    % Otherwise, the game is not over
     fail).
+
+has_valid_moves(Board, Player) :-
+    findall((Row, Col), piece_position(Board, Player, (Row, Col)), PlayerPieces),
+    member((StartRow, StartCol), PlayerPieces),
+    valid_moves(Board, Player, (StartRow, StartCol), Moves),
+    Moves \= [].
 
 % Check if all pieces of a specific color are connected
 all_connected(Board, Player) :-
@@ -373,7 +407,6 @@ all_connected(Board, Player) :-
         )
     ;   fail
     ).
-
 
 % Find the position of a piece on the board
 piece_position(Board, Player, (Row, Col)) :-
@@ -393,20 +426,6 @@ reachable_positions(Board, [CurrentPos | Queue], Visited, Player, Reachable) :-
     append(Visited, [CurrentPos], NewVisited),
     reachable_positions(Board, NewQueue, NewVisited, Player, Reachable).
 
-% Check for an adjacent position of the same color
-neighboring_position(Board, (Row, Col), (NRow, NCol), Player) :-
-    member((DR, DC), [(-1, 0), (1, 0), (0, -1), (0, 1)]),
-    NRow is Row + DR,
-    NCol is Col + DC,
-    valid_position(Board, NRow, NCol),
-    nth0(NRow, Board, RowList),
-    nth0(NCol, RowList, Player).
-
-% Check if the position is within the bounds of the board
-valid_position(Board, Row, Col) :-
-    nth0(Row, Board, RowList),
-    nth0(Col, RowList, _).  % Checks if the column exists in the row.
-
 % Helper predicate to replace an element at a specific index in a list
 replace_in_list(Index, List, NewElem, NewList) :-
     nth0(Index, List, _, TempList),
@@ -417,7 +436,7 @@ next_player(red, white).
 next_player(white, red).
 
 % Display the game board
-display_game(game(Board, Players, CurrentPlayer)) :- 
+display_game(game(Board, _, CurrentPlayer)) :- 
     nl, write('--------------------------------------'), nl,
     write('Current Board: '), nl,
     display_board(Board),

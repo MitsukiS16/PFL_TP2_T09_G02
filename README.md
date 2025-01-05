@@ -1,93 +1,106 @@
 # AYU
 
-```
-Identification of the topic (game) and group (group designation, student number and full name of each
-member of the group), as well as an indication of the contribution (in percentages, adding up to 100%,
-and a brief description of tasks performed) of each member of the group to the assignment
-```
+## Identification
+
+**Topic**: AYU Game
+
+**Group Designation**:
+
+- PFL_TP2_T09_G02
+
+- Members:
+    
+    - Clarisse Maria Teixeira de Carvalho, 50%
+
+    - Henrique Silva Marques, 50%
+
 
 ## Installation and Execution
 
 1. Go to `src` folder 
 
-2. Open prolog interpreter, eg `swipl`
+2. Open a Prolog interpreter
 
-3. Compile the code, eg `['game.pl'].`
+3. Compile the code using: `['game.pl'].`
 
-4. Run code, `play.`
+4. Start the game using, `play.`
 
 ## Game Description
 
-```
-a brief description of the game and its rules; you should also include the links
-used to gather information (official game website, rule book, etc.)
-```
+AYU is a strategic board game where players aim to group their pieces while preventing their opponent from doing the same. The player who cannot make a move on their turn wins, which typically happens when all their pieces are joined in a single group. Draws are theoretically possible but are avoided as players aim to win rather than cooperate.
+
+**Rules**:
+
+- Players alternate turns, selecting a piece and moving it according to the game's movement rules.
+
+- A move involves specifying the current coordinates of the piece and its new position.
+
+- If a player selects an invalid move, they must try again.
 
 ## Considerations for game extensions:
 
-```
-describe the considerations taken into account when extending
-the game design, namely when considering variable-sized boards, optional rules (e.g., simplified rules
-for novice players, additional rules for expert players), and other aspects.
-```
+- **Variable-Sized Boards**: Designed to allow boards of different sizes for varied gameplay.
+
+- **Gameplay Features**: Limited move suggestions to the top 5 options for easier decision-making.
+
+- **Computer Players**: Implementation of random and greedy AI players
 
 ## Game Logic
 
-```
-Describe the main design decisions regarding the implementation of the game logic in
-Prolog (do not copy the source code). This section should have information on the following topics,
-among others
-```
-
 ### Game Configuration Representation
 
-```
-describe the information required to represent the game
-configuration, how it is represented internally and how it is used by the initial_state/2 predicate
-```
+The initial configuration is represented using a structured Prolog predicate `initial_state/2`, which defines the board's size and initial piece placements.
 
 ### Internal Game State Representation
-```
-describe the information required to represent the game
-state, how it is represented internally, including an indication of the meaning of each atom (i.e. how
-different pieces are represented). Include examples of representations of initial, intermediate, and
-final game states
-```
+
+- **Representation**: The game state is modeled as a list of lists representing the board grid. Each cell contains an atom indicating its state (e.g., empty, occupied by Player 1, or Player 2).
+
+- **Examples**:
+
+    - **Initial State**: [empty, empty, player1, player2, empty]
+
+    - **Intermediate State**: [player1, empty, empty, player2, player1]
+
+    - **Final State**: [player1, player1, player1, player1, player1]
 
 ### Move Representation
-```
-describe the information required to represent a move, and how it is
-represented internally (e.g., the coordinates of a board location, and/or other information
-necessary to represent a move) and how it is used by the move/3 predicate
-```
+
+- **Structure**: Moves are represented as tuples of coordinates, e.g., ((X1, Y1), (X2, Y2)).
+
+- **Usage**: The move/3 predicate validates and executes moves, ensuring adherence to the rules
 
 ### User Interaction
-```
-ly describe the game menu system, as well as how interaction with the user
-is performed, focusing on input validation (e.g., when reading a move
-```
+
+- **Menu System**: A simple menu allows users to start a new game, view rules, or exit.
+
+- **Input Validation**: Ensures valid piece selection and movement, prompting the player to retry invalid actions.
 
 ## Conclusions
-```
-Conclusions about the work carried out, including limitations of the program (and known
-issues), as well as possible improvements (future developments roadmap
-```
+
+The AYU game implementation successfully provides a foundation for strategic gameplay. However, there are limitations and areas for improvement:
+
+**Known Issues**:
+
+- Infinite move options can overwhelm players without suggested moves.
+
+- AI players require further optimization.
+
+**Future Developments**:
+
+- Enhanced AI strategies.
+
+- Support for additional game modes.
+
+- Improved user interface
 
 ## Bibliography
-```
-List of books, papers, web pages and other resources used during the development of the
-assignment. If you used tools such as ChatGPT, list the queries used
-```
 
+Webpages:
 
+- https://boardgamegeek.com/boardgame/114484/ayu
 
-## TODO
+- https://www.mindsports.nl/index.php/arena/ayu
 
-* Update board to original ayu board
-* Update move parts -> the player shoudl seelct a piece (indicate the coordinates) nad than give th enew movemente (indicate the coordinates)
-* because we have almost infinite options, just print 5 options of movement
-* implement the random player
-* implement the gready player
-* implement when its a win -  If a player can't make a move on his turn, he wins. This usually occurs when said player has joined all his pieces in a single group. (its possible to have draws but ww will asume that players want to win and its not cooperate)
-* implenete possible moves of a piece (because if a player sleect a impossible move , we should say its impossible and he have to try again), and this implementaion can be use for the pc select a move
-* implement the update of the board when select move 
+Tools Used:
+
+- ChatGPT to refine game logic 
