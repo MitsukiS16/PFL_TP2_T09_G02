@@ -1,20 +1,21 @@
-% :- use_module(library(lists)).
-% :- use_module(library(apply)).
-% :- use_module(library(between)).
-% :- use_module(library(aggregate)).
-% :- use_module(library(random)).
-% :- use_module(library(sets)).
+% Import necessary libraries
+:- use_module(library(lists)).
+:- use_module(library(apply)).
+:- use_module(library(between)).
+:- use_module(library(aggregate)).
+:- use_module(library(random)).
+:- use_module(library(sets)).
 
 % Main predicate to run the menu
 play :- 
     write('--------------------------------------'), nl,
     write('|       Welcome to Ayu Game          |'), nl,
     write('--------------------------------------'), nl,
-    choose_board_size(BoardSize),
-    choose_players(Players),
-    create_initial_board(BoardSize, Board),
+    choose_board_size(BoardSize),  % Prompt the user to choose board size
+    choose_players(Players),       % Prompt the user to choose player types
+    create_initial_board(BoardSize, Board),  % Create the initial board based on the size
     write('Game initialized!'), nl,
-    game_cycle(game(Board, Players, red), []).
+    game_cycle(game(Board, Players, red), []).  % Start the game cycle with the red player
 
 % Board size selection menu
 choose_board_size(BoardSize) :- 
@@ -25,24 +26,26 @@ choose_board_size(BoardSize) :-
     write('| 3. 9x9                             |'), nl,
     write('| Choose an option (1-3):            |'), nl,
     write('--------------------------------------'), nl,
-    safe_read(Choice),
-    handle_board_size_choice(Choice, BoardSize).
+    safe_read(Choice),  % Read the user's choice
+    handle_board_size_choice(Choice, BoardSize).  % Handle the choice
 
+% Handle the user's board size choice
 handle_board_size_choice(1, 11).
 handle_board_size_choice(2, 13).
 handle_board_size_choice(3, 9).
 handle_board_size_choice(_, BoardSize) :-
     write('Invalid choice. Please try again.'), nl,
-    choose_board_size(BoardSize).
+    choose_board_size(BoardSize).  % Repeat if the choice was invalid
 
 % Player type selection
 choose_players(Players) :-
     write('Choosing Player 1:'), nl,
-    choose_player_type(Player1),
+    choose_player_type(Player1),  % Choose the type for Player 1
     write('Choosing Player 2:'), nl,
-    choose_player_type(Player2),
-    Players = [Player1, Player2].
+    choose_player_type(Player2),  % Choose the type for Player 2
+    Players = [Player1, Player2].  % Store the player types
 
+% Player type selection menu
 choose_player_type(Player) :-
     write('--------------------------------------'), nl,
     write('| Choose Player Type                 |'), nl,
@@ -51,26 +54,27 @@ choose_player_type(Player) :-
     write('| 3. PC - level 2                    |'), nl,
     write('| Choose an option (1-3):            |'), nl,
     write('--------------------------------------'), nl,
-    safe_read(Choice),
-    handle_player_choice(Choice, Player).
+    safe_read(Choice),  % Read the user's choice
+    handle_player_choice(Choice, Player).  % Handle the choice
 
+% Handle the user's player type choice
 handle_player_choice(1, human).
 handle_player_choice(2, pc_level1).
 handle_player_choice(3, pc_level2).
 handle_player_choice(_, Player) :-
     write('Invalid choice. Please try again.'), nl,
-    choose_player_type(Player).
+    choose_player_type(Player).  % Repeat if the choice was invalid
 
 % Safe input handling
 safe_read(Input) :- 
     catch(read(Input), _, (write('Invalid input. Please try again.'), nl, fail)).
 
-% Safe input handling (ensures input is in correct format)
+% Safe input handling for coordinates
 safe_read((Row, Col)) :- 
     catch(read(Row-Col), _, (write('Invalid input. Please try again.'), nl, fail)),
     Row > 0, Col > 0.
 
-% Create initial boards
+% Create initial boards based on the chosen size
 create_initial_board(11, Board) :- 
     Board = [
         [red, empty, red, empty, red, empty, red, empty, red, empty, red],
@@ -116,6 +120,34 @@ create_initial_board(9, Board) :-
         [red, empty, red, empty, red, empty, red, empty, red]
     ].
 
+% Mid-game board (for testing)
+/* create_initial_board(9, Board) :- 
+    Board = [
+        [empty, red, red, empty, red, empty, red, empty, red],
+        [empty, white, red, white, empty, empty, empty, empty, empty],
+        [empty, empty, red, empty, white, white, empty, empty, red],
+        [empty, white, empty, white, red, white, red, white, empty],
+        [empty, empty, red, empty, red, empty, red, empty, red],
+        [red, white, white, white, white, white, empty, white, empty],
+        [red, red, empty, white, red, white, red, red, empty],
+        [empty, empty, empty, empty, empty, empty, empty, empty, empty],
+        [red, empty, empty, red, red, empty, red, empty, red]
+    ]. */
+
+% End-game board (for testing)
+/* create_initial_board(9, Board) :- 
+    Board = [
+        [empty, red, red, empty, red, empty, red, empty, red],
+        [empty, empty, red, empty, empty, empty, empty, empty, empty],
+        [empty, empty, empty, red, white, white, white, red, red],
+        [empty, white, white, white, red, white, empty, white, empty],
+        [empty, empty, red, white, empty, red, red, empty, red],
+        [red, empty, white, white, white, white, white, empty, empty],
+        [empty, red, empty, white, red, white, red, red, empty],
+        [red, empty, empty, empty, red, empty, empty, empty, empty],
+        [red, empty, empty, red, empty, empty, red, empty, red]
+    ]. */
+
 % Main game cycle with cycle detection and draw condition
 game_cycle(game(Board, Players, CurrentPlayer), PreviousBoards) :-
     display_game(game(Board, Players, CurrentPlayer)),
@@ -130,28 +162,29 @@ game_cycle(game(Board, Players, CurrentPlayer), PreviousBoards) :-
 
 % Play turn for a given player
 play_turn(game(Board, Players, CurrentPlayer), game(NewBoard, Players, NextPlayer)) :-
-    (CurrentPlayer = red -> CurrentPlayerIndex = 1 ; CurrentPlayerIndex = 2),
-    nth1(CurrentPlayerIndex, Players, PlayerType),
+    (CurrentPlayer = red -> CurrentPlayerIndex = 1 ; CurrentPlayerIndex = 2),  % Determine the current player's index
+    nth1(CurrentPlayerIndex, Players, PlayerType),  % Get the current player's type
     write('Player type: '), write(PlayerType), nl,
     % Check if the current player has any valid moves
     (has_valid_moves(Board, CurrentPlayer) ->
         (PlayerType == human ->
-            get_move(Board, CurrentPlayer, StartPos, EndPos), 
-            move(game(Board, Players, CurrentPlayer), (StartPos, EndPos), game(NewBoard, Players, NextPlayer))
+            get_move(Board, CurrentPlayer, StartPos, EndPos),  % Get the move from the human player
+            move(game(Board, Players, CurrentPlayer), (StartPos, EndPos), game(NewBoard, Players, NextPlayer))  % Apply the move
         ; PlayerType == pc_level1 ->
-            choose_move(game(Board, Players, CurrentPlayer), 1, (StartPos, EndPos)),
+            choose_move(game(Board, Players, CurrentPlayer), 1, (StartPos, EndPos)),  % Choose a move for PC level 1
             write('PC Level 1 chooses move from '), write(StartPos), write(' to '), write(EndPos), nl,
-            move(game(Board, Players, CurrentPlayer), (StartPos, EndPos), game(NewBoard, Players, NextPlayer))
+            move(game(Board, Players, CurrentPlayer), (StartPos, EndPos), game(NewBoard, Players, NextPlayer))  % Apply the move
         ; PlayerType == pc_level2 ->
-            choose_move(game(Board, Players, CurrentPlayer), 2, (StartPos, EndPos)),
+            choose_move(game(Board, Players, CurrentPlayer), 2, (StartPos, EndPos)),  % Choose a move for PC level 2
             write('PC Level 2 chooses move from '), write(StartPos), write(' to '), write(EndPos), nl,
-            move(game(Board, Players, CurrentPlayer), (StartPos, EndPos), game(NewBoard, Players, NextPlayer))
+            move(game(Board, Players, CurrentPlayer), (StartPos, EndPos), game(NewBoard, Players, NextPlayer))  % Apply the move
         )
-    ;   % If no valid moves, the current player wins
-        game_over(Board, CurrentPlayer)
+    ;   % If no valid moves, the opponent wins
+        opponent(CurrentPlayer, Opponent),
+        game_over(Board, Opponent)
     ).
 
-
+% Choose a move for PC level 1 (random move)
 choose_move(game(Board, _, CurrentPlayer), 1, (StartPos, EndPos)) :-
     % Find all pieces of the current player
     findall((Row1, Col1), (piece_position(Board, CurrentPlayer, (Row, Col)), Row1 is Row + 1, Col1 is Col + 1), PlayerPieces),
@@ -168,6 +201,7 @@ choose_move(game(Board, _, CurrentPlayer), 1, (StartPos, EndPos)) :-
     % Randomly select one move from the valid moves
     random_member(EndPos, Moves).
 
+% Choose a move for PC level 2 (heuristic-based move)
 choose_move(game(Board, _, CurrentPlayer), 2, (BestStartPos, BestEndPos)) :-
     % Find all pieces of the current player
     findall((Row1, Col1), (piece_position(Board, CurrentPlayer, (Row, Col)), Row1 is Row + 1, Col1 is Col + 1), PlayerPieces),
@@ -268,22 +302,28 @@ get_move(Board, CurrentPlayer, StartPos, EndPos) :-
     EndRow0 is EndRow - 1,
     EndCol0 is EndCol - 1,
     (valid_position(Board, EndRow0, EndCol0) -> true ; (write('Invalid destination. Please try again.'), nl, fail)).
-
 % Validate the move and apply it
 move(game(Board, Players, CurrentPlayer), (StartPos, EndPos), game(NewBoard, Players, NextPlayer)) :-
+    % Extract start and end positions
     StartPos = (StartRow, StartCol),
     EndPos = (EndRow, EndCol),
+    % Check if the move is valid
     valid_move(Board, (StartRow, StartCol), (EndRow, EndCol), CurrentPlayer),
+    % Apply the move on the board
     apply_move(Board, (StartRow, StartCol), (EndRow, EndCol), CurrentPlayer, NewBoard),
+    % Determine the next player
     next_player(CurrentPlayer, NextPlayer).
 
-% Valid piece selection check (must belong to the current player)
+% Validate that the piece at (Row, Col) belongs to the current player
 valid_piece(Board, Player, (Row, Col)) :- 
     Row0 is Row - 1,
     Col0 is Col - 1,
+    % Check if the position is within the board
     valid_position(Board, Row0, Col0),
+    % Get the piece at the specified position
     nth0(Row0, Board, RowList),
     nth0(Col0, RowList, Piece),
+    % Validate the piece belongs to the player
     (Piece == Player -> true ; 
     (write('Invalid piece selection. Please select a piece that belongs to you.'), nl, fail)).
 
@@ -342,6 +382,7 @@ adjacent_same_color(Board, (Row, Col), Color, (StartRow, StartCol)) :-
     nth0(NCol, NeighborRow, NeighborColor),
     NeighborColor == Color.
 
+% Find neighboring positions
 neighboring_position(Board, (Row, Col), (NRow, NCol), (StartRow, StartCol)) :-
     % Define the relative positions of neighbors
     member((DR, DC), [(-1, 0), (1, 0), (0, -1), (0, 1)]), % Up, Down, Left, Right
@@ -387,6 +428,7 @@ game_over(Board, Winner) :-
     % Otherwise, the game is not over
     fail).
 
+% Check if the player has valid moves
 has_valid_moves(Board, Player) :-
     findall((Row, Col), piece_position(Board, Player, (Row, Col)), PlayerPieces),
     member((StartRow, StartCol), PlayerPieces),
@@ -413,9 +455,11 @@ piece_position(Board, Player, (Row, Col)) :-
     nth0(Row, Board, RowList),
     nth0(Col, RowList, Player).
 
+% Calculate reachable positions from a given starting position
 reachable_positions(Board, CurrentPos, Player, Reachable) :-
     reachable_positions(Board, [CurrentPos], [], Player, Reachable).
 
+% Calculate reachable positions using a queue
 reachable_positions(_, [], Reachable, _, Reachable).
 reachable_positions(Board, [CurrentPos | Queue], Visited, Player, Reachable) :-
     % Get neighbors of the current position

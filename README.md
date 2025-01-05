@@ -17,13 +17,11 @@
 
 ## Installation and Execution
 
-1. Go to `src` folder 
+1. Open a Prolog interpreter
 
-2. Open a Prolog interpreter
+2. Compile the code using: `['game.pl'].`
 
-3. Compile the code using: `['game.pl'].`
-
-4. Start the game using, `play.`
+3. Start the game using, `play.`
 
 ## Game Description
 
