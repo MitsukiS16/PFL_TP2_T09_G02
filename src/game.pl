@@ -1,7 +1,10 @@
 :- use_module(library(lists)).
+:- use_module(library(apply)).
 :- use_module(library(between)).
 :- use_module(library(aggregate)).
 :- use_module(library(random)).
+:- use_module(library(sets)).
+
 
 % Main predicate to run the menu
 play :- 
@@ -127,12 +130,14 @@ play_turn(game(Board, Players, CurrentPlayer), game(NewBoard, Players, NextPlaye
         move(game(Board, Players, CurrentPlayer), (StartPos, EndPos), game(NewBoard, Players, NextPlayer))
     ; PlayerType == pc_level1 ->
         choose_move(game(Board, Players, CurrentPlayer), 1, (StartPos, EndPos)),
-        write('PC Level 1 chooses move: '), write((StartPos, EndPos)), nl,
+        write('PC Level 1 chooses move from '), write(StartPos), write(' to '), write(EndPos), nl,
         move(game(Board, Players, CurrentPlayer), (StartPos, EndPos), game(NewBoard, Players, NextPlayer))
     ; PlayerType == pc_level2 ->
         choose_move(game(Board, Players, CurrentPlayer), 2, (StartPos, EndPos)),
+        write('PC Level 2 chooses move from '), write(StartPos), write(' to '), write(EndPos), nl,
         move(game(Board, Players, CurrentPlayer), (StartPos, EndPos), game(NewBoard, Players, NextPlayer))
     ).
+
 
 choose_move(game(Board, Players, CurrentPlayer), 1, (StartPos, EndPos)) :-
     % Find all pieces of the current player
@@ -149,6 +154,95 @@ choose_move(game(Board, Players, CurrentPlayer), 1, (StartPos, EndPos)) :-
     findall((EndRow1, EndCol1), (member((EndRow, EndCol), Moves0), EndRow1 is EndRow + 1, EndCol1 is EndCol + 1, valid_position(Board, EndRow, EndCol)), Moves),
     % Randomly select one move from the valid moves
     random_member(EndPos, Moves).
+
+choose_move(game(Board, Players, CurrentPlayer), 2, (BestStartPos, BestEndPos)) :-
+    % Find all pieces of the current player
+    findall((Row1, Col1), (piece_position(Board, CurrentPlayer, (Row, Col)), Row1 is Row + 1, Col1 is Col + 1), PlayerPieces),
+    % Generate all possible moves for each piece
+    findall((Score, StartPos, EndPos),
+            (member(StartPos, PlayerPieces),
+             StartPos = (StartRow, StartCol),
+             Row0 is StartRow - 1,
+             Col0 is StartCol - 1,
+             valid_moves(Board, CurrentPlayer, (Row0, Col0), Moves0),
+             findall((EndRow1, EndCol1),
+                     (member((EndRow, EndCol), Moves0),
+                      EndRow1 is EndRow + 1,
+                      EndCol1 is EndCol + 1),
+                     Moves),
+             member(EndPos, Moves),
+             value(Board, CurrentPlayer, (StartPos, EndPos), Score)),
+            MovesWithScores),
+    % Select the move with the highest score
+    max_member((_, BestStartPos, BestEndPos), MovesWithScores).
+
+% sum_list(+List, -Sum)
+% Sums all elements in a list.
+sum_list(List, Sum) :-
+    sum_list(List, 0, Sum).
+
+sum_list([], Acc, Acc).
+sum_list([H|T], Acc, Sum) :-
+    NewAcc is Acc + H,
+    sum_list(T, NewAcc, Sum).
+
+% Define opponent relationship
+opponent(red, white).
+opponent(white, red).
+
+% Enhanced heuristic evaluation function
+value(Board, CurrentPlayer, (StartPos, EndPos), Value) :-
+    % Calculate the distance reduction from moving
+    EndPos = (EndRow, EndCol),
+    StartPos = (StartRow, StartCol),
+    Row0 is EndRow - 1,
+    Col0 is EndCol - 1,
+    StartRow0 is StartRow - 1,
+    StartCol0 is StartCol - 1,
+    calculate_distance_reduction(Board, CurrentPlayer, (StartRow0, StartCol0), (Row0, Col0), DistanceReduction),
+    
+    % Count adjacent friendly and opponent pieces
+    findall((NRow, NCol),
+            neighboring_position(Board, (Row0, Col0), (NRow, NCol), _),
+            Neighbors),
+    opponent(CurrentPlayer, Opponent),
+    include(piece_position(Board, CurrentPlayer), Neighbors, FriendlyNeighbors),
+    include(piece_position(Board, Opponent), Neighbors, OpponentNeighbors),
+    length(FriendlyNeighbors, FriendlyCount),
+    length(OpponentNeighbors, OpponentCount),
+
+    % Assign heuristic value
+    Value is DistanceReduction * 10 + FriendlyCount * 5 - OpponentCount * 2.
+
+% Calculate the reduction in distance between friendly groups
+calculate_distance_reduction(Board, CurrentPlayer, (StartRow, StartCol), (EndRow, EndCol), Reduction) :-
+    findall((Row, Col), piece_position(Board, CurrentPlayer, (Row, Col)), FriendlyPieces),
+    % Compute total distance before the move
+    total_distance((StartRow, StartCol), FriendlyPieces, OriginalDistance),
+    % Simulate the move
+    substitute(Board, (StartRow, StartCol), empty, TempBoard),
+    substitute(TempBoard, (EndRow, EndCol), CurrentPlayer, NewBoard),
+    findall((Row, Col), piece_position(NewBoard, CurrentPlayer, (Row, Col)), NewFriendlyPieces),
+    % Compute total distance after the move
+    total_distance((EndRow, EndCol), NewFriendlyPieces, NewDistance),
+    Reduction is OriginalDistance - NewDistance.
+
+% Compute total Manhattan distance between a piece and a list of positions
+total_distance((Row, Col), Positions, TotalDistance) :-
+    findall(Distance, 
+            (member((PRow, PCol), Positions), manhattan_distance((Row, Col), (PRow, PCol), Distance)),
+            Distances),
+    sum_list(Distances, TotalDistance).
+
+% Manhattan distance
+manhattan_distance((Row1, Col1), (Row2, Col2), Distance) :-
+    Distance is abs(Row1 - Row2) + abs(Col1 - Col2).
+
+% Substitute a position in the board with a new value
+substitute(Board, (Row, Col), Value, NewBoard) :-
+    nth0(Row, Board, RowList, TempBoard),
+    replace_in_list(Col, RowList, Value, NewRowList),
+    nth0(Row, NewBoard, NewRowList, TempBoard).
 
 % Get the piece to move and the destination
 get_move(Board, CurrentPlayer, StartPos, EndPos) :-
@@ -256,34 +350,62 @@ apply_move(Board, (StartRow, StartCol), (EndRow, EndCol), Player, NewBoard) :-
     nth0(EndRow0, NewBoard, NewEndRowList, TempRows2).
 
 % Check if all pieces of a player are adjacent to each other and return the winner
+% Check if the game is over, and return the winner
 game_over(Board, Winner) :-
-    findall((Row, Col), piece_position(Board, red, (Row, Col)), RedPositions),
-    findall((Row, Col), piece_position(Board, white, (Row, Col)), WhitePositions),
-    (RedPositions = [] -> Winner = white ;
-    WhitePositions = [] -> Winner = red ;
-    (RedPositions = [FirstRedPos|_], check_all_adjacent(RedPositions, [FirstRedPos], [FirstRedPos], RedPositions) -> Winner = red ;
-    WhitePositions = [FirstWhitePos|_], check_all_adjacent(WhitePositions, [FirstWhitePos], [FirstWhitePos], WhitePositions) -> Winner = white ;
-    fail)).
+    % Check if all red pieces are connected
+    (all_connected(Board, red) -> Winner = red ;
+    % Check if all white pieces are connected
+    all_connected(Board, white) -> Winner = white ;
+    % Otherwise, the game is not over
+    fail).
 
-% Find the position of a player's piece on the board
+% Check if all pieces of a specific color are connected
+all_connected(Board, Player) :-
+    % Find all positions of the player's pieces
+    findall((Row, Col), piece_position(Board, Player, (Row, Col)), PlayerPositions),
+    % Ensure there are pieces on the board
+    (PlayerPositions \= [] ->
+        (   % Check if all positions are reachable from the first position
+            [FirstPos | _] = PlayerPositions,
+            reachable_positions(Board, FirstPos, Player, Reachable),
+            % All player positions should be in the reachable set
+            subset(PlayerPositions, Reachable)
+        )
+    ;   fail
+    ).
+
+
+% Find the position of a piece on the board
 piece_position(Board, Player, (Row, Col)) :-
     nth0(Row, Board, RowList),
     nth0(Col, RowList, Player).
 
-% Check if all positions are adjacent to each other
-check_all_adjacent([], _, _, _).
-check_all_adjacent(_, [], _, []).
-check_all_adjacent(AllPositions, [Pos|Rest], Visited, Unvisited) :-
-    findall(Neighbor, (adjacent(Pos, Neighbor), member(Neighbor, AllPositions), \+ member(Neighbor, Visited)), Neighbors),
-    append(Neighbors, Rest, NewRest),
-    select(Pos, Unvisited, NewUnvisited),
-    check_all_adjacent(AllPositions, NewRest, [Pos|Visited], NewUnvisited).
+reachable_positions(Board, CurrentPos, Player, Reachable) :-
+    reachable_positions(Board, [CurrentPos], [], Player, Reachable).
 
-% Check if two positions are adjacent
-adjacent((Row, Col), (NRow, NCol)) :-
+reachable_positions(_, [], Reachable, _, Reachable).
+reachable_positions(Board, [CurrentPos | Queue], Visited, Player, Reachable) :-
+    % Get neighbors of the current position
+    findall((Row, Col), neighboring_position(Board, CurrentPos, (Row, Col), Player), Neighbors),
+    % Mark visited positions
+    subtract(Neighbors, Visited, Unvisited),
+    append(Queue, Unvisited, NewQueue),
+    append(Visited, [CurrentPos], NewVisited),
+    reachable_positions(Board, NewQueue, NewVisited, Player, Reachable).
+
+% Check for an adjacent position of the same color
+neighboring_position(Board, (Row, Col), (NRow, NCol), Player) :-
     member((DR, DC), [(-1, 0), (1, 0), (0, -1), (0, 1)]),
     NRow is Row + DR,
-    NCol is Col + DC.
+    NCol is Col + DC,
+    valid_position(Board, NRow, NCol),
+    nth0(NRow, Board, RowList),
+    nth0(NCol, RowList, Player).
+
+% Check if the position is within the bounds of the board
+valid_position(Board, Row, Col) :-
+    nth0(Row, Board, RowList),
+    nth0(Col, RowList, _).  % Checks if the column exists in the row.
 
 % Helper predicate to replace an element at a specific index in a list
 replace_in_list(Index, List, NewElem, NewList) :-
